@@ -1,0 +1,63 @@
+{
+  "name": "GitHub Summarizer",
+  "slug": "github-summarizer",
+  "description": "Summarizes any public GitHub repository: tech stack, recent activity, key stats, and an AI-generated overview. No GitHub token needed for public repos.",
+  "goal": "Give developers and agents a fast, structured understanding of any public GitHub repository without needing to manually browse the repo. Return actionable intelligence: what the project does, what tech it uses, and how active it is.",
+  "decision_logic": "Parse the GitHub repo URL to extract owner and repo name. Fetch metadata, README, languages, and recent commits via the GitHub REST API (public endpoints, no auth required for public repos). Pass the collected data to Claude Haiku for synthesis. Return a structured JSON response with summary, tech_stack array, recent_activity description, and key_stats object.",
+  "agent_type": "reactive",
+  "auth_type": "none",
+  "rate_type": "per_call",
+  "rate_amount": 0.005,
+  "tags": ["github", "code-analysis", "developer-tools", "claude", "repository"],
+  "capability_schema": {
+    "capabilities": [
+      {
+        "id": "github-summary",
+        "name": "GitHub Repository Summary",
+        "description": "Fetch and summarize a public GitHub repository",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repo_url": {
+              "type": "string",
+              "description": "GitHub repository URL (e.g. https://github.com/owner/repo)"
+            },
+            "include_commits": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether to include recent commit activity"
+            }
+          },
+          "required": ["repo_url"]
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "summary": { "type": "string", "description": "2-3 sentence AI-generated overview" },
+            "tech_stack": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Top programming languages and frameworks"
+            },
+            "recent_activity": { "type": "string", "description": "Description of recent commit activity" },
+            "key_stats": {
+              "type": "object",
+              "properties": {
+                "stars": { "type": "integer" },
+                "forks": { "type": "integer" },
+                "open_issues": { "type": "integer" },
+                "watchers": { "type": "integer" },
+                "default_branch": { "type": "string" },
+                "last_updated": { "type": "string" },
+                "license": { "type": "string" }
+              }
+            },
+            "repo_name": { "type": "string" },
+            "owner": { "type": "string" }
+          },
+          "required": ["summary", "tech_stack", "recent_activity", "key_stats"]
+        }
+      }
+    ]
+  }
+}
