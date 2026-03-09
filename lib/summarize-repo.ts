@@ -61,7 +61,9 @@ Respond with only valid JSON, no markdown fences.`;
 
   const content = message.content[0];
   if (content.type !== "text") throw new Error("Unexpected Claude response type");
-  const parsed = JSON.parse(content.text);
+  // Strip markdown code fences if Claude wraps the JSON response
+  const cleaned = content.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  const parsed = JSON.parse(cleaned);
 
   return {
     summary: parsed.summary,
