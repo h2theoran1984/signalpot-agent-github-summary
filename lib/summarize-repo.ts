@@ -34,15 +34,15 @@ export async function summarizeRepo(
     .map((c) => `- ${c.commit.message.split("\n")[0]} (${c.commit.author.date.slice(0, 10)})`)
     .join("\n");
 
-  const prompt = `You are analyzing a GitHub repository. Return a JSON object with:
-- "summary": 2-3 sentences describing what this project does and who it's for
-- "tech_stack": array of top technologies (languages, frameworks, tools) mentioned in the README or languages
-- "recent_activity": 1-2 sentences describing the recent commit activity and project health
+  const today = new Date().toISOString().slice(0, 10);
+  const prompt = `You are analyzing a GitHub repository. Today's date is ${today}.
+Return a JSON object with:
+- "summary": 2-3 sentences describing what this project does and who it's for. Do NOT mention specific numbers like stars, forks, or dates in the summary.
+- "recent_activity": 1-2 sentences describing the recent commit activity and project health based on the commit messages below.
 
 Repository: ${owner}/${repo}
 Description: ${meta?.description ?? "No description"}
 Languages: ${langList}
-Stars: ${meta?.stargazers_count ?? 0} | Forks: ${meta?.forks_count ?? 0} | Issues: ${meta?.open_issues_count ?? 0}
 Topics: ${meta?.topics?.join(", ") ?? "none"}
 
 Recent commits:
@@ -65,9 +65,13 @@ Respond with only valid JSON, no markdown fences.`;
   const cleaned = content.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
   const parsed = JSON.parse(cleaned);
 
+  // Use API languages directly — don't let Claude hallucinate the tech stack
+  const techStack = Object.keys(langs).slice(0, 8);
+  if (techStack.length === 0) techStack.push("unknown");
+
   return {
     summary: parsed.summary,
-    tech_stack: parsed.tech_stack ?? langList.split(", "),
+    tech_stack: techStack,
     recent_activity: parsed.recent_activity,
     key_stats: {
       stars: meta?.stargazers_count ?? 0,
