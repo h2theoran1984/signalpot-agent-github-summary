@@ -26,12 +26,19 @@ async function handleMessageSend(params: MessageSendParams): Promise<unknown> {
   const githubToken = process.env.GITHUB_TOKEN;
 
   const { meta, langs, recentCommits, readmeContent } = await fetchRepoData(owner, repo, githubToken);
-  const result = await summarizeRepo(owner, repo, meta, langs, recentCommits, readmeContent);
+  const { data, cost } = await summarizeRepo(owner, repo, meta, langs, recentCommits, readmeContent);
 
   return {
     id: crypto.randomUUID(),
     status: { state: "completed" },
-    artifacts: [{ parts: [{ type: "data", data: result }] }],
+    artifacts: [{ parts: [{ type: "data", data }] }],
+    _meta: {
+      provider_cost: {
+        api_cost_usd: cost.api_cost_usd,
+        input_tokens: cost.input_tokens,
+        output_tokens: cost.output_tokens,
+      },
+    },
   };
 }
 

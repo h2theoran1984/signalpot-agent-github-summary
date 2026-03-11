@@ -3,6 +3,16 @@ import type { RepoMetadata, RepoLanguages, RepoCommit } from "./github.js";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Haiku 4.5 pricing (per token)
+const HAIKU_INPUT_PER_TOKEN = 1.0 / 1_000_000;   // $1.00 / 1M tokens
+const HAIKU_OUTPUT_PER_TOKEN = 5.0 / 1_000_000;   // $5.00 / 1M tokens
+
+export interface CostInfo {
+  input_tokens: number;
+  output_tokens: number;
+  api_cost_usd: number;
+}
+
 export interface RepoSummaryOutput {
   summary: string;
   tech_stack: string[];
@@ -27,7 +37,7 @@ export async function summarizeRepo(
   langs: RepoLanguages,
   recentCommits: RepoCommit[],
   readmeContent: string | null
-): Promise<RepoSummaryOutput> {
+): Promise<{ data: RepoSummaryOutput; cost: CostInfo }> {
   const langList = Object.keys(langs).slice(0, 8).join(", ") || "unknown";
   const commitMessages = recentCommits
     .slice(0, 5)
@@ -59,6 +69,16 @@ Respond with only valid JSON, no markdown fences.`;
     messages: [{ role: "user", content: prompt }],
   });
 
+  const apiCost = message.usage.input_tokens * HAIKU_INPUT_PER_TOKEN + message.usage.output_tokens * HAIKU_OUTPUT_PER_TOKEN;
+  console.log(
+    `[cost] github-summary | in=${message.usage.input_tokens} out=${message.usage.output_tokens} | cost=$${apiCost.toFixed(6)} | revenue=$0.005`
+  );
+  const cost: CostInfo = {
+    input_tokens: message.usage.input_tokens,
+    output_tokens: message.usage.output_tokens,
+    api_cost_usd: Math.round(apiCost * 1_000_000) / 1_000_000,
+  };
+
   const content = message.content[0];
   if (content.type !== "text") throw new Error("Unexpected Claude response type");
   // Strip markdown code fences if Claude wraps the JSON response
@@ -70,19 +90,22 @@ Respond with only valid JSON, no markdown fences.`;
   if (techStack.length === 0) techStack.push("unknown");
 
   return {
-    summary: parsed.summary,
-    tech_stack: techStack,
-    recent_activity: parsed.recent_activity,
-    key_stats: {
-      stars: meta?.stargazers_count ?? 0,
-      forks: meta?.forks_count ?? 0,
-      open_issues: meta?.open_issues_count ?? 0,
-      watchers: meta?.watchers_count ?? 0,
-      default_branch: meta?.default_branch ?? "main",
-      last_updated: meta?.updated_at ?? new Date().toISOString(),
-      license: meta?.license?.name ?? "None",
+    data: {
+      summary: parsed.summary,
+      tech_stack: techStack,
+      recent_activity: parsed.recent_activity,
+      key_stats: {
+        stars: meta?.stargazers_count ?? 0,
+        forks: meta?.forks_count ?? 0,
+        open_issues: meta?.open_issues_count ?? 0,
+        watchers: meta?.watchers_count ?? 0,
+        default_branch: meta?.default_branch ?? "main",
+        last_updated: meta?.updated_at ?? new Date().toISOString(),
+        license: meta?.license?.name ?? "None",
+      },
+      repo_name: meta?.name ?? repo,
+      owner,
     },
-    repo_name: meta?.name ?? repo,
-    owner,
+    cost,
   };
 }
