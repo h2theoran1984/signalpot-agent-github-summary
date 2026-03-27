@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { RepoMetadata, RepoLanguages, RepoCommit } from "./github.js";
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { resolveCredential } from "./keykeeper.js";
 
 // Haiku 4.5 pricing (per token)
 const HAIKU_INPUT_PER_TOKEN = 1.0 / 1_000_000;   // $1.00 / 1M tokens
@@ -38,6 +37,12 @@ export async function summarizeRepo(
   recentCommits: RepoCommit[],
   readmeContent: string | null
 ): Promise<{ data: RepoSummaryOutput; cost: CostInfo }> {
+  const apiKey = await resolveCredential({
+    secretName: "anthropic-api-key",
+    envFallback: "ANTHROPIC_API_KEY",
+  });
+  const anthropic = new Anthropic({ apiKey });
+
   const langList = Object.keys(langs).slice(0, 8).join(", ") || "unknown";
   const commitMessages = recentCommits
     .slice(0, 5)

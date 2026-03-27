@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { JSONRPCRequest, JSONRPCResponse, MessageSendParams } from "../../lib/a2a-types.js";
 import { parseRepoUrl, fetchRepoData } from "../../lib/github.js";
 import { summarizeRepo } from "../../lib/summarize-repo.js";
+import { resolveCredential } from "../../lib/keykeeper.js";
 
 function jsonrpcError(id: string | number, code: number, message: string): JSONRPCResponse {
   return { jsonrpc: "2.0", id, error: { code, message } };
@@ -23,7 +24,10 @@ async function handleMessageSend(params: MessageSendParams): Promise<unknown> {
   if (!repoUrl) throw new Error("Missing repo_url in request");
 
   const { owner, repo } = parseRepoUrl(repoUrl);
-  const githubToken = process.env.GITHUB_TOKEN;
+  const githubToken = await resolveCredential({
+    secretName: "github-token",
+    envFallback: "GITHUB_TOKEN",
+  });
 
   const { meta, langs, recentCommits, readmeContent } = await fetchRepoData(owner, repo, githubToken);
   const { data, cost } = await summarizeRepo(owner, repo, meta, langs, recentCommits, readmeContent);
